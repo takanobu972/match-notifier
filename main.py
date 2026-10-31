@@ -7,7 +7,6 @@ import urllib.request
 from bs4 import BeautifulSoup
 
 def check_kawasaki_match():
-    # 川崎フロンターレの公式スケジュールページ
     url = "https://www.frontale.co.jp/schedule/"
     try:
         req = urllib.request.Request(
@@ -16,15 +15,16 @@ def check_kawasaki_match():
         html = urllib.request.urlopen(req).read().decode('utf-8', errors='ignore')
         soup = BeautifulSoup(html, "html.parser")
 
-        # 明日の日付を取得（例: 11月1日 のような形式）
         tomorrow = datetime.date.today() + datetime.timedelta(days=1)
-        target_str = f"{tomorrow.month}月{tomorrow.day}日"
+        # 「11月1日」と「11/1」のどちらの表記でもヒットするように設定
+        target_str1 = f"{tomorrow.month}月{tomorrow.day}日"
+        target_str2 = f"{tomorrow.month}/{tomorrow.day}"
         
         page_text = soup.get_text()
-        print(f"確認対象の日付: {target_str}")
+        print(f"確認対象の日付: {target_str1} または {target_str2}")
         
-        if target_str in page_text:
-            print(f"明日({target_str})の試合予定が見つかりました！")
+        if target_str1 in page_text or target_str2 in page_text:
+            print(f"明日の試合予定が見つかりました！")
             return True
         else:
             print(f"明日の試合予定は見つかりませんでした。")
