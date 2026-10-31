@@ -6,7 +6,6 @@ from bs4 import BeautifulSoup
 import re
 
 def check_kawasaki_match():
-    # 明日ではなく「今日（当日）」の日付を取得するように変更
     today = datetime.date.today()
     
     year_month_str = today.strftime("%Y%m")
@@ -33,6 +32,12 @@ def check_kawasaki_match():
                 if "OFF" in text or "非公開" in text:
                     continue
                 if re.search(r'\d{1,2}:\d{2}', text):
+                    
+                    # 指定された4つの大会のいずれかが含まれているかチェック
+                    target_keywords = ["明治安田J1", "U-21 Jリーグ交流戦", "ルヴァンカップ", "天皇杯"]
+                    if not any(kw in text for kw in target_keywords):
+                        continue # 対象外の大会（練習試合やイベント等）であればスキップする
+                    
                     # 改行やバラバラになった日付の数字を整理しつつ、日付以外の試合詳細部分を抽出
                     lines = [line.strip() for line in text.splitlines() if line.strip()]
                     match_lines = [l for l in lines if l != day_num and l != "日"]
@@ -40,16 +45,17 @@ def check_kawasaki_match():
                     found = True
                     break
 
-        # もしうまく抽出できなかった場合のフォールバック
+        # 試合が見つからなかった場合は None を返す（通知しない）
         if not found:
-            match_details_text = "13:00 明治安田J1第13節 vs横浜F・マリノス (日産ス)\n19:30 U-21 Jリーグ交流戦ラウンド第1節 vsU-21 V・ファーレン長崎 (ピースタ)"
+            print("対象の公式戦・公式大会の予定はありません。")
+            return None
 
         # 綺麗な日付（例: 11月1日）を明示的に先頭につける
         formatted_date = f"{today.month}月{today.day}日"
         
         match_info = f"本日は川崎フロンターレの試合日です！\n\n【日付】\n{formatted_date}\n\n【試合詳細】\n{match_details_text}\n\n公式スケジュール: {url}"
         
-        print("本日の試合予定が見つかりました！")
+        print("本日の対象試合予定が見つかりました！")
         return match_info
             
     except Exception as e:
@@ -95,4 +101,4 @@ if __name__ == "__main__":
     if match_details:
         send_line(match_details)
     else:
-        print("本日は試合がありません。")
+        print("本日は対象の試合がないため、通知は送信しません。")
