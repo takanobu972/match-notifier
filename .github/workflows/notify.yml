@@ -2,15 +2,15 @@ name: Send Match Notification
 
 on:
   schedule:
-    # 毎日 9:23 UTC（＝日本時間 18:23）に実行
-    - cron: '23 9 * * *'
-  workflow_dispatch:  # 手動テスト実行も引き続き可能
+    # 毎日 1:00 UTC（＝日本時間 朝10:00）に実行
+    - cron: '0 1 * * *'
+  workflow_dispatch: # 手動テスト実行も引き続き可能
 
 jobs:
   run-script:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Python
