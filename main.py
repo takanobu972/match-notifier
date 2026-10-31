@@ -1,9 +1,7 @@
 import datetime
 import os
-import smtplib
-from email.header import Header
-from email.mime.text import MIMEText
 import urllib.request
+import json
 from bs4 import BeautifulSoup
 import re
 
@@ -36,7 +34,6 @@ def check_kawasaki_match():
                 if re.search(r'\d{1,2}:\d{2}', text):
                     # 改行やバラバラになった日付の数字を整理しつつ、日付以外の試合詳細部分を抽出
                     lines = [line.strip() for line in text.splitlines() if line.strip()]
-                    # 日付の数字（1や日など）を除いた、試合情報（時間や対戦カード）を綺麗に残す
                     match_lines = [l for l in lines if l != day_num and l != "日"]
                     match_details_text = "\n".join(match_lines)
                     found = True
@@ -59,30 +56,42 @@ def check_kawasaki_match():
 
     return None
 
-def send_email(match_body):
-    sender = os.environ["MY_EMAIL"]
-    password = os.environ["MAIL_PASSWORD"]
-    receiver = os.environ["MY_EMAIL"]
-
-    subject = "【お知らせ】明日は川崎フロンターレの試合日です！"
-
-    msg = MIMEText(match_body, "plain", "utf-8")
-    msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = sender
-    msg["To"] = receiver
-
+def send_line(match_body):
+    access_token = os.environ["LINE_ACCESS_TOKEN"]
+    user_id = os.environ["LINE_USER_ID"]
+    
+    line_url = "https://api.line.me/v2/bot/message/push"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {access_token}"
+    }
+    data = {
+        "to": user_id,
+        "messages": [
+            {
+                "type": "text",
+                "text": match_body
+            }
+        ]
+    }
+    
+    req = urllib.request.Request(
+        line_url,
+        data=json.dumps(data).encode('utf-8'),
+        headers=headers,
+        method="POST"
+    )
+    
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender, password)
-            server.send_message(msg)
-        print("メールを送信しました。")
+        with urllib.request.urlopen(req) as res:
+            print("LINEに通知を送信しました。")
     except Exception as e:
-        print(f"メール送信失敗: {e}")
+        print(f"LINE送信失敗: {e}")
 
 if __name__ == "__main__":
     print("試合日程の確認を開始します...")
     match_details = check_kawasaki_match()
     if match_details:
-        send_email(match_details)
+        send_line(match_details)
     else:
         print("明日は試合がありません。")
