@@ -1,0 +1,30 @@
+name: Send Match Notification
+
+on:
+  schedule:
+    # 毎日 日本時間の朝7:00（UTC 22:00）に自動実行
+    - cron: '0 22 * * *'
+  workflow_dispatch: # 手動でも動かせるようにする設定
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install beautifulsoup4
+
+      - name: Run main.py
+        env:
+          MY_EMAIL: ${{ secrets.MY_EMAIL }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+        run: |
+          python main.py
