@@ -3,7 +3,7 @@ name: Send Match Notification
 on:
   schedule:
     # 毎日 9:23 UTC（＝日本時間 18:23）に実行
-    - cron: '0 9 * * *'
+    - cron: '23 9 * * *'
   workflow_dispatch:  # 手動テスト実行も引き続き可能
 
 jobs:
