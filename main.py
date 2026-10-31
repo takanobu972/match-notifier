@@ -6,14 +6,15 @@ from bs4 import BeautifulSoup
 import re
 
 def check_kawasaki_match():
-    tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+    # 明日ではなく「今日（当日）」の日付を取得するように変更
+    today = datetime.date.today()
     
-    year_month_str = tomorrow.strftime("%Y%m")
+    year_month_str = today.strftime("%Y%m")
     url = f"https://www.frontale.co.jp/schedule/monthly.php?m={year_month_str}"
     
-    day_num = str(tomorrow.day) # 例: "1"
+    day_num = str(today.day) # 例: "1"
     print(f"アクセスするURL: {url}")
-    print(f"探している日: {day_num}日")
+    print(f"探している日（今日）: {day_num}日")
     
     try:
         req = urllib.request.Request(
@@ -25,7 +26,7 @@ def check_kawasaki_match():
         match_details_text = ""
         found = False
         
-        # サイト内から明日の日付の行を探す
+        # サイト内から今日の日付の行を探す
         for tr in soup.find_all(['tr', 'div']):
             text = tr.get_text()
             if f"{day_num}日" in text or f"{day_num} (" in text or f"{day_num}\n" in text:
@@ -44,11 +45,11 @@ def check_kawasaki_match():
             match_details_text = "13:00 明治安田J1第13節 vs横浜F・マリノス (日産ス)\n19:30 U-21 Jリーグ交流戦ラウンド第1節 vsU-21 V・ファーレン長崎 (ピースタ)"
 
         # 綺麗な日付（例: 11月1日）を明示的に先頭につける
-        formatted_date = f"{tomorrow.month}月{tomorrow.day}日"
+        formatted_date = f"{today.month}月{today.day}日"
         
-        match_info = f"明日は川崎フロンターレの試合日です！\n\n【日付】\n{formatted_date}\n\n【試合詳細】\n{match_details_text}\n\n公式スケジュール: {url}"
+        match_info = f"本日は川崎フロンターレの試合日です！\n\n【日付】\n{formatted_date}\n\n【試合詳細】\n{match_details_text}\n\n公式スケジュール: {url}"
         
-        print("明日の試合予定が見つかりました！")
+        print("本日の試合予定が見つかりました！")
         return match_info
             
     except Exception as e:
@@ -94,4 +95,4 @@ if __name__ == "__main__":
     if match_details:
         send_line(match_details)
     else:
-        print("明日は試合がありません。")
+        print("本日は試合がありません。")
