@@ -7,18 +7,19 @@ import urllib.request
 from bs4 import BeautifulSoup
 
 def check_kawasaki_match():
-    # 明日の日付を取得
     tomorrow = datetime.date.today() + datetime.timedelta(days=1)
     
-    # フロンターレの正しい月別ページURLの形式 (例: .../monthly.php?m=202611)
     year_month_str = tomorrow.strftime("%Y%m")
     url = f"https://www.frontale.co.jp/schedule/monthly.php?m={year_month_str}"
     
-    target_str1 = f"{tomorrow.month}月{tomorrow.day}日"
-    target_str2 = f"{tomorrow.month}/{tomorrow.day}"
+    # 検索する日付のパーツ（例: 11月1日 なら "11月" と "1日" や "1" の組み合わせ）
+    month_str = f"{tomorrow.month}月"
+    day_str1 = f"{tomorrow.day}日"
+    day_str2 = f"/{tomorrow.day}"
+    day_str3 = f"{tomorrow.day}" # 単体の数字
     
     print(f"アクセスするURL: {url}")
-    print(f"探している日付: {target_str1} または {target_str2}")
+    print(f"探しているパーツ: 月={month_str}, 日付={day_str1} または {day_str2}")
     
     try:
         req = urllib.request.Request(
@@ -29,8 +30,9 @@ def check_kawasaki_match():
         
         page_text = soup.get_text()
         
-        if target_str1 in page_text or target_str2 in page_text:
-            print("明日の試合予定が見つかりました！")
+        # 「11月」が含まれていて、かつ「1日」または「1/1」またはカレンダーの「1日」のセル周辺にあるか判定
+        if month_str in page_text and (day_str1 in page_text or day_str2 in page_text):
+            print("明日の試合予定（日付の合致）が見つかりました！")
             return True
         else:
             print("明日の試合予定は見つかりませんでした。")
