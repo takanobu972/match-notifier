@@ -62,4 +62,27 @@ def check_kawasaki_match():
 def send_email(match_body):
     sender = os.environ["MY_EMAIL"]
     password = os.environ["MAIL_PASSWORD"]
-    receiver = os.
+    receiver = os.environ["MY_EMAIL"]
+
+    subject = "【お知らせ】明日は川崎フロンターレの試合日です！"
+
+    msg = MIMEText(match_body, "plain", "utf-8")
+    msg["Subject"] = Header(subject, "utf-8")
+    msg["From"] = sender
+    msg["To"] = receiver
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender, password)
+            server.send_message(msg)
+        print("メールを送信しました。")
+    except Exception as e:
+        print(f"メール送信失敗: {e}")
+
+if __name__ == "__main__":
+    print("試合日程の確認を開始します...")
+    match_details = check_kawasaki_match()
+    if match_details:
+        send_email(match_details)
+    else:
+        print("明日は試合がありません。")
