@@ -5,61 +5,63 @@ import json
 from bs4 import BeautifulSoup
 import re
 
-def check_kawasaki_match():
+def get_nearest_match():
     today = datetime.date.today()
+    target_keywords = ["明治安田J1", "U-21 Jリーグ交流戦", "ルヴァンカップ", "天皇杯"]
     
-    year_month_str = today.strftime("%Y%m")
-    url = f"https://www.frontale.co.jp/schedule/monthly.php?m={year_month_str}"
+    # 今月と来月のデータを順に確認して、今日以降の最も近い試合を探す
+    target_months = [
+        (today.year, today.month),
+        (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
+    ]
     
-    day_num = str(today.day) # 例: "1"
-    print(f"アクセスするURL: {url}")
-    print(f"探している日（今日）: {day_num}日")
-    
-    try:
-        req = urllib.request.Request(
-            url, headers={"User-Agent": "Mozilla/5.0"}
-        )
-        html = urllib.request.urlopen(req).read().decode('utf-8', errors='ignore')
-        soup = BeautifulSoup(html, "html.parser")
+    for year, month in target_months:
+        year_month_str = f"{year}{month:02d}"
+        url = f"https://www.frontale.co.jp/schedule/monthly.php?m={year_month_str}"
+        print(f"アクセスするURL: {url}")
         
-        match_details_text = ""
-        found = False
-        
-        # サイト内から今日の日付の行を探す
-        for tr in soup.find_all(['tr', 'div']):
-            text = tr.get_text()
-            if f"{day_num}日" in text or f"{day_num} (" in text or f"{day_num}\n" in text:
+        try:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0"}
+            )
+            html = urllib.request.urlopen(req).read().decode('utf-8', errors='ignore')
+            soup = BeautifulSoup(html, "html.parser")
+            
+            # ページ内の要素を走査して今日以降の試合を探す
+            for tr in soup.find_all(['tr', 'div']):
+                text = tr.get_text()
                 if "OFF" in text or "非公開" in text:
                     continue
                 if re.search(r'\d{1,2}:\d{2}', text):
-                    
-                    # 指定された4つの大会のいずれかが含まれているかチェック
-                    target_keywords = ["明治安田J1", "U-21 Jリーグ交流戦", "ルヴァンカップ", "天皇杯"]
+                    # 指定された4大大会のいずれかを含むかチェック
                     if not any(kw in text for kw in target_keywords):
-                        continue # 対象外の大会（練習試合やイベント等）であればスキップする
+                        continue
                     
-                    # 改行やバラバラになった日付の数字を整理しつつ、日付以外の試合詳細部分を抽出
-                    lines = [line.strip() for line in text.splitlines() if line.strip()]
-                    match_lines = [l for l in lines if l != day_num and l != "日"]
-                    match_details_text = "\n".join(match_lines)
-                    found = True
-                    break
-
-        # 試合が見つからなかった場合は None を返す（通知しない）
-        if not found:
-            print("対象の公式戦・公式大会の予定はありません。")
-            return None
-
-        # 綺麗な日付（例: 11月1日）を明示的に先頭につける
-        formatted_date = f"{today.month}月{today.day}日"
-        
-        match_info = f"本日は川崎フロンターレの試合日です！\n\n【日付】\n{formatted_date}\n\n【試合詳細】\n{match_details_text}\n\n公式スケジュール: {url}"
-        
-        print("本日の対象試合予定が見つかりました！")
-        return match_info
-            
-    except Exception as e:
-        print(f"データ取得エラー: {e}")
+                    # 日付の数字を抽出
+                    day_match = re.search(r'(\d{1,2})\s*日', text)
+                    if not day_match:
+                        day_match = re.search(r'(\d{1,2})\s*\(', text)
+                    
+                    if day_match:
+                        day_num = int(day_match.group(1))
+                        try:
+                            match_date = datetime.date(year, month, day_num)
+                        except ValueError:
+                            continue
+                        
+                        # 今日以降の試合であれば採用
+                        if match_date >= today:
+                            lines = [line.strip() for line in text.splitlines() if line.strip()]
+                            match_lines = [l for l in lines if not re.match(r'^\d+日?$', l) and l != "日"]
+                            match_details_text = "\n".join(match_lines)
+                            
+                            formatted_date = f"{month}月{day_num}日"
+                            match_info = f"【テスト通知：直近の試合予定】\n\n【日付】\n{formatted_date}\n\n【試合詳細】\n{match_details_text}\n\n公式スケジュール:\n{url}"
+                            print(f"直近の試合が見つかりました: {formatted_date}")
+                            return match_info
+                            
+        except Exception as e:
+            print(f"データ取得エラー ({year}年{month}月): {e}")
 
     return None
 
@@ -96,9 +98,9 @@ def send_line(match_body):
         print(f"LINE送信失敗: {e}")
 
 if __name__ == "__main__":
-    print("試合日程の確認を開始します...")
-    match_details = check_kawasaki_match()
+    print("直近の試合日程の確認を開始します...")
+    match_details = get_nearest_match()
     if match_details:
         send_line(match_details)
     else:
-        print("本日は対象の試合がないため、通知は送信しません。")
+        print("未来の対象試合が見つかりませんでした。")
