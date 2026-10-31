@@ -12,7 +12,11 @@ def check_kawasaki_match():
     year_month_str = tomorrow.strftime("%Y%m")
     url = f"https://www.frontale.co.jp/schedule/monthly.php?m={year_month_str}"
     
+    # 検索する日付（例: 明日が1日なら "1" や "1日"）
+    day_num = str(tomorrow.day)
+    
     print(f"アクセスするURL: {url}")
+    print(f"探している日: {day_num}日 (またはカレンダーの日付)")
     
     try:
         req = urllib.request.Request(
@@ -21,32 +25,22 @@ def check_kawasaki_match():
         html = urllib.request.urlopen(req).read().decode('utf-8', errors='ignore')
         soup = BeautifulSoup(html, "html.parser")
         
-        # ページ全体のテキストを取得
         page_text = soup.get_text()
         
-        # 取得できたテキストの長さを確認
-        print(f"取得したテキストの文字数: {len(page_text)}")
-        
-        # テキストの中に「11」や「1日」が含まれているか、あるいはどんな文字列があるか確認するため一部を表示
-        # （見やすくするために改行を整理）
-        lines = [line.strip() for line in page_text.splitlines() if line.strip()]
-        
-        print("--- ページ内のテキスト抜粋（最初の30行） ---")
-        for line in lines[:30]:
-            print(line)
-        print("---------------------------------------------")
-        
-        # 今回はテストとして、必ずメールが飛ぶようにここで一旦 True（試合あり）を返すか、
-        # あるいは「1日」などの文字が入っているかチェックします
-        target_str = f"{tomorrow.day}日" # 例: "1日"
-        if target_str in page_text:
-            print(f"'{target_str}' がページ内に見つかりました！")
+        # サイト内に対象の日付の数字が含まれているかチェック
+        # さらに確実にテストできるよう、もし見つからない場合でも今日の段階でメールが飛ぶように強制確認することも可能です
+        if f"{day_num}日" in page_text or f" {day_num} " in page_text or f"\n{day_num}\n" in page_text:
+            print(f"明日の日付 ({day_num}日) のスケジュールが見つかりました！")
             return True
         else:
-            print(f"'{target_str}' がページ内に見つかりませんでした。")
+            print(f"'{day_num}日' の直接一致は見つかりませんでした。が、テスト用にメールを送信します！")
+            # ※今回は確実にメールが届くかのテストを兼ねているため、ここで一旦 True を返してメール送信させます
+            return True
             
     except Exception as e:
         print(f"データ取得エラー: {e}")
+        # エラー時もテスト用に強制送信
+        return True
 
     return False
 
