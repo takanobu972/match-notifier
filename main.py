@@ -56,7 +56,7 @@ def get_nearest_match():
                             match_details_text = "\n".join(match_lines)
                             
                             formatted_date = f"{month}月{day_num}日"
-                            match_info = f"【テスト通知：直近の試合予定】\n\n【日付】\n{formatted_date}\n\n【試合詳細】\n{match_details_text}\n\n公式スケジュール:\n{url}"
+                            match_info = f"【川崎フロンターレ 試合通知】\n\n【日付】\n{formatted_date}\n\n【試合詳細】\n{match_details_text}\n\n公式スケジュール:\n{url}"
                             print(f"直近の試合が見つかりました: {formatted_date}")
                             return match_info
                             
@@ -67,40 +67,46 @@ def get_nearest_match():
 
 def send_line(match_body):
     access_token = os.environ["LINE_ACCESS_TOKEN"]
-    user_id = os.environ["LINE_USER_ID"]
+    
+    # 環境変数から複数人の user_id を取得し、カンマで分割してリスト化する
+    user_ids_env = os.environ["LINE_USER_ID"]
+    user_ids = [uid.strip() for uid in user_ids_env.split(",") if uid.strip()]
     
     line_url = "https://api.line.me/v2/bot/message/push"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {access_token}"
     }
-    data = {
-        "to": user_id,
-        "messages": [
-            {
-                "type": "text",
-                "text": match_body
-            }
-        ]
-    }
     
-    req = urllib.request.Request(
-        line_url,
-        data=json.dumps(data).encode('utf-8'),
-        headers=headers,
-        method="POST"
-    )
-    
-    try:
-        with urllib.request.urlopen(req) as res:
-            print("LINEに通知を送信しました。")
-    except Exception as e:
-        print(f"LINE送信失敗: {e}")
+    # 登録されている全員に対してループでメッセージを送信
+    for user_id in user_ids:
+        data = {
+            "to": user_id,
+            "messages": [
+                {
+                    "type": "text",
+                    "text": match_body
+                }
+            ]
+        }
+        
+        req = urllib.request.Request(
+            line_url,
+            data=json.dumps(data).encode('utf-8'),
+            headers=headers,
+            method="POST"
+        )
+        
+        try:
+            with urllib.request.urlopen(req) as res:
+                print(f"LINEに通知を送信しました（宛先: {user_id}）。")
+        except Exception as e:
+            print(f"LINE送信失敗（宛先: {user_id}）: {e}")
 
 if __name__ == "__main__":
-    print("直近の試合日程の確認を開始します...")
+    print("試合日程の確認を開始します...")
     match_details = get_nearest_match()
     if match_details:
         send_line(match_details)
     else:
-        print("未来の対象試合が見つかりませんでした。")
+        print("対象試合が見つかりませんでした。")
