@@ -7,26 +7,28 @@ import urllib.request
 from bs4 import BeautifulSoup
 
 def check_kawasaki_match():
-    url = "https://www.frontale.co.jp/schedule/"
+    # 明日の日付を取得
+    tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+    
+    # フロンターレの正しい月別ページURLの形式 (例: .../monthly.php?m=202611)
+    year_month_str = tomorrow.strftime("%Y%m")
+    url = f"https://www.frontale.co.jp/schedule/monthly.php?m={year_month_str}"
+    
+    target_str1 = f"{tomorrow.month}月{tomorrow.day}日"
+    target_str2 = f"{tomorrow.month}/{tomorrow.day}"
+    
+    print(f"アクセスするURL: {url}")
+    print(f"探している日付: {target_str1} または {target_str2}")
+    
     try:
-        print(f"アクセス中: {url}")
         req = urllib.request.Request(
             url, headers={"User-Agent": "Mozilla/5.0"}
         )
         html = urllib.request.urlopen(req).read().decode('utf-8', errors='ignore')
         soup = BeautifulSoup(html, "html.parser")
-
-        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
-        target_str1 = f"{tomorrow.month}月{tomorrow.day}日"
-        target_str2 = f"{tomorrow.month}/{tomorrow.day}"
-        
-        print(f"探している日付: {target_str1} または {target_str2}")
         
         page_text = soup.get_text()
         
-        # ページから取得できたテキストの一部をログに表示（確認用）
-        print(f"取得したテキストの冒頭: {page_text[:100]}...")
-
         if target_str1 in page_text or target_str2 in page_text:
             print("明日の試合予定が見つかりました！")
             return True
