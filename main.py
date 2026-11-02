@@ -21,38 +21,34 @@ def check_today_match():
         html = urllib.request.urlopen(req).read().decode('utf-8', errors='ignore')
         soup = BeautifulSoup(html, "html.parser")
         
+        # 今日を示す文字列（例: "2日" や "2(" など）を定義
+        target_day_str1 = f"{today.day}日"
+        target_day_str2 = f"{today.day}("
+        
         # ページ内の要素を走査して今日の試合を探す
-        for tr in soup.find_all(['tr', 'div']):
-            text = tr.get_text()
+        for el in soup.find_all(['div', 'td', 'li', 'section']):
+            text = el.get_text()
+            
             if "OFF" in text or "非公開" in text:
                 continue
-            if re.search(r'\d{1,2}:\d{2}', text):
-                # 指定された4大大会のいずれかを含むかチェック
-                if not any(kw in text for kw in target_keywords):
-                    continue
+            # 時間（例: 14:00など）が含まれていないものはスキップ
+            if not re.search(r'\d{1,2}:\d{2}', text):
+                continue
+            
+            # 指定された4大大会のいずれかを含むかチェック
+            if not any(kw in text for kw in target_keywords):
+                continue
+            
+            # 【重要】その要素の中に「今日の日付」の文字列が確実に含まれているかチェック
+            if target_day_str1 in text or target_day_str2 in text:
+                lines = [line.strip() for line in text.splitlines() if line.strip()]
+                match_lines = [l for l in lines if not re.match(r'^\d+日?$', l) and l != "日"]
+                match_details_text = "\n".join(match_lines)
                 
-                # 日付の数字を抽出
-                day_match = re.search(r'(\d{1,2})\s*日', text)
-                if not day_match:
-                    day_match = re.search(r'(\d{1,2})\s*\(', text)
-                
-                if day_match:
-                    day_num = int(day_match.group(1))
-                    try:
-                        match_date = datetime.date(today.year, today.month, day_num)
-                    except ValueError:
-                        continue
-                    
-                    # 【重要】「今日（当日）」と試合日が完全に一致する場合のみ採用
-                    if match_date == today:
-                        lines = [line.strip() for line in text.splitlines() if line.strip()]
-                        match_lines = [l for l in lines if not re.match(r'^\d+日?$', l) and l != "日"]
-                        match_details_text = "\n".join(match_lines)
-                        
-                        formatted_date = f"{today.month}月{today.day}日"
-                        match_info = f"【川崎フロンターレ 試合当日通知】\n\n【日付】\n{formatted_date}\n\n【試合詳細】\n{match_details_text}\n\n公式スケジュール:\n{url}"
-                        print(f"本日の試合が見つかりました: {formatted_date}")
-                        return match_info
+                formatted_date = f"{today.month}月{today.day}日"
+                match_info = f"【川崎フロンターレ 試合当日通知】\n\n【日付】\n{formatted_date}\n\n【試合詳細】\n{match_details_text}\n\n公式スケジュール:\n{url}"
+                print(f"本日の試合が見つかりました: {formatted_date}")
+                return match_info
                         
     except Exception as e:
         print(f"データ取得エラー: {e}")
