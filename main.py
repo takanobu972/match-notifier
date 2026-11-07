@@ -21,46 +21,81 @@ def check_today_match():
         html = urllib.request.urlopen(req).read().decode('utf-8', errors='ignore')
         soup = BeautifulSoup(html, "html.parser")
         
-        elements = soup.find_all(['tr', 'li', 'div'])
+        # ページ全体のテキストブロックや行（tr, li, div, section）をくまなく探す
+        elements = soup.find_all(['tr', 'li', 'div', 'section'])
         
         for el in elements:
-            # 大きな親要素をスキップ
-            if len(el.find_all(['tr', 'li'])) > 0:
-                continue
-                
             text = el.get_text(separator=" ", strip=True)
             
             if "OFF" in text or "非公開" in text:
                 continue
                 
-            # 時間（16:00など）が含まれているか
+            # 1. 今日を示す日付が含まれているか（例: "7日" または "7("）
+            day_pattern1 = f"{today.day}日"
+            day_pattern2 = f"{today.day}("
+            if day_pattern1 not in text and day_pattern2 not in text:
+                continue
+                
+            # 2. 時間（例: 16:00）が含まれているか
             if not re.search(r'\d{1,2}:\d{2}', text):
                 continue
                 
-            # 大会名キーワードが含まれているか
+            # 3. 大会キーワードのいずれかが含まれているか
             if not any(kw in text for kw in target_keywords):
                 continue
             
-            # 【確定修正】今日の日付（例: "7日" または "7(" または "7 "）が含まれているか安全にチェック
-            day_str1 = f"{today.day}日"
-            day_str2 = f"{today.day}("
-            day_str3 = f" {today.day} "
+            # 条件をすべて満たした場合、綺麗に整形して返す
+            formatted_date = f"{today.month}月{today.day}日"
+            clean_text = " ".join(text.split())
             
-            if day_str1 in text or day_str2 in text or day_str3 in text:
-                formatted_date = f"{today.month}月{today.day}日"
-                clean_text = " ".join(text.split())
-                
-                match_info = (
-                    f"【川崎フロンターレ 試合当日通知】\n\n"
-                    f"【日付】\n{formatted_date}\n\n"
-                    f"【試合詳細】\n{clean_text}\n\n"
-                    f"公式スケジュール:\n{url}"
-                )
-                print(f"本日の試合が見つかりました: {formatted_date}")
-                return match_info
+            # 余分な重複テキスト削ぎ落とし（必要に応じてクレンジング）
+            match_info = (
+                f"【川崎フロンターレ 試合当日通知】\n\n"
+                f"【日付】\n{formatted_date}\n\n"
+                f"【試合詳細】\n{clean_text}\n\n"
+                f"公式スケジュール:\n{url}"
+            )
+            print(f"本日の試合が見つかりました: {formatted_date}")
+            return match_info
                         
     except Exception as e:
         print(f"データ取得エラー: {e}")
 
     print("本日の対象試合はありません。")
     return None
+
+def send_line(match_body):
+    access_token = os.environ["LINE_ACCESS_TOKEN"]
+    user_ids_env = os.environ["LINE_USER_ID"]
+    user_ids = [uid.strip() for uid in user_ids_env.split(",") if uid.strip()]
+    
+    line_url = "https://api.line.me/v2/bot/message/push"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {access_token}"
+    }
+    
+    for user_id in user_ids:
+        data = {
+            "to": user_id,
+            "messages": [{"type": "text", "text": match_body}]
+        }
+        req = urllib.request.Request(
+            line_url,
+            data=json.dumps(data).encode('utf-8'),
+            headers=headers,
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(req) as res:
+                print(f"LINEに通知を送信しました（宛先: {user_id}）。")
+        except Exception as e:
+            print(f"LINE送信失敗（宛先: {user_id}）: {e}")
+
+if __name__ == "__main__":
+    print("本日の試合日程の確認を開始します...")
+    match_details = check_today_match()
+    if match_details:
+        send_line(match_details)
+    else:
+        print("本日は通知対象の試合がないため、LINE送信はスキップします。")
