@@ -21,32 +21,43 @@ def check_today_match():
         html = urllib.request.urlopen(req).read().decode('utf-8', errors='ignore')
         soup = BeautifulSoup(html, "html.parser")
         
-        # 今日を示す文字列（例: "2日" や "2(" など）を定義
-        target_day_str1 = f"{today.day}日"
-        target_day_str2 = f"{today.day}("
+        # 今日を示すパターン（例: 先頭や行頭の「7日」や「7(」など）
+        # テーブルの行(tr) または リスト項目/ブロックごとに探索
+        elements = soup.find_all(['tr', 'li', 'div'])
         
-        # ページ内の要素を走査して今日の試合を探す
-        for el in soup.find_all(['div', 'td', 'li', 'section']):
-            text = el.get_text()
+        for el in elements:
+            # 直下の小要素を含みすぎない末端に近いブロックを対象にするため、子要素が多すぎる親タグはスキップ
+            if len(el.find_all(['tr', 'li'])) > 0:
+                continue
+                
+            text = el.get_text(separator=" ", strip=True)
             
             if "OFF" in text or "非公開" in text:
                 continue
-            # 時間（例: 14:00など）が含まれていないものはスキップ
+                
+            # 時間（16:00など）が含まれるか
             if not re.search(r'\d{1,2}:\d{2}', text):
                 continue
-            
-            # 指定された4大大会のいずれかを含むかチェック
+                
+            # 対象大会キーワードが含まれるか
             if not any(kw in text for kw in target_keywords):
                 continue
             
-            # 【重要】その要素の中に「今日の日付」の文字列が確実に含まれているかチェック
-            if target_day_str1 in text or target_day_str2 in text:
-                lines = [line.strip() for line in text.splitlines() if line.strip()]
-                match_lines = [l for l in lines if not re.match(r'^\d+日?$', l) and l != "日"]
-                match_details_text = "\n".join(match_lines)
-                
+            # 日付判定: 「7日」「7(」「 7 」などの単語境界または表記を正確にチェック
+            # 行の先頭付近に今日の日付数字があるかを判定
+            day_pattern = rf'(?:^|\s|>{today.day}(?:日|\(|\s|$)'
+            if re.search(day_pattern, text) or f"{today.day}日" in text or f"{today.day}(" in text:
                 formatted_date = f"{today.month}月{today.day}日"
-                match_info = f"【川崎フロンターレ 試合当日通知】\n\n【日付】\n{formatted_date}\n\n【試合詳細】\n{match_details_text}\n\n公式スケジュール:\n{url}"
+                
+                # 不要な改行・空白を整えて綺麗なメッセージを作成
+                clean_text = " ".join(text.split())
+                
+                match_info = (
+                    f"【川崎フロンターレ 試合当日通知】\n\n"
+                    f"【日付】\n{formatted_date}\n\n"
+                    f"【試合詳細】\n{clean_text}\n\n"
+                    f"公式スケジュール:\n{url}"
+                )
                 print(f"本日の試合が見つかりました: {formatted_date}")
                 return match_info
                         
@@ -55,49 +66,3 @@ def check_today_match():
 
     print("本日の対象試合はありません。")
     return None
-
-def send_line(match_body):
-    access_token = os.environ["LINE_ACCESS_TOKEN"]
-    
-    # 環境変数から複数人の user_id を取得し、カンマで分割してリスト化する
-    user_ids_env = os.environ["LINE_USER_ID"]
-    user_ids = [uid.strip() for uid in user_ids_env.split(",") if uid.strip()]
-    
-    line_url = "https://api.line.me/v2/bot/message/push"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {access_token}"
-    }
-    
-    # 登録されている全員に対してループでメッセージを送信
-    for user_id in user_ids:
-        data = {
-            "to": user_id,
-            "messages": [
-                {
-                    "type": "text",
-                    "text": match_body
-                }
-            ]
-        }
-        
-        req = urllib.request.Request(
-            line_url,
-            data=json.dumps(data).encode('utf-8'),
-            headers=headers,
-            method="POST"
-        )
-        
-        try:
-            with urllib.request.urlopen(req) as res:
-                print(f"LINEに通知を送信しました（宛先: {user_id}）。")
-        except Exception as e:
-            print(f"LINE送信失敗（宛先: {user_id}）: {e}")
-
-if __name__ == "__main__":
-    print("本日の試合日程の確認を開始します...")
-    match_details = check_today_match()
-    if match_details:
-        send_line(match_details)
-    else:
-        print("本日は通知対象の試合がないため、LINE送信はスキップします。")
