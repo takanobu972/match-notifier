@@ -21,12 +21,10 @@ def check_today_match():
         html = urllib.request.urlopen(req).read().decode('utf-8', errors='ignore')
         soup = BeautifulSoup(html, "html.parser")
         
-        # 今日を示すパターン（例: 先頭や行頭の「7日」や「7(」など）
-        # テーブルの行(tr) または リスト項目/ブロックごとに探索
         elements = soup.find_all(['tr', 'li', 'div'])
         
         for el in elements:
-            # 直下の小要素を含みすぎない末端に近いブロックを対象にするため、子要素が多すぎる親タグはスキップ
+            # 大きな親要素をスキップ
             if len(el.find_all(['tr', 'li'])) > 0:
                 continue
                 
@@ -35,21 +33,21 @@ def check_today_match():
             if "OFF" in text or "非公開" in text:
                 continue
                 
-            # 時間（16:00など）が含まれるか
+            # 時間（16:00など）が含まれているか
             if not re.search(r'\d{1,2}:\d{2}', text):
                 continue
                 
-            # 対象大会キーワードが含まれるか
+            # 大会名キーワードが含まれているか
             if not any(kw in text for kw in target_keywords):
                 continue
             
-            # 日付判定: 「7日」「7(」「 7 」などの単語境界または表記を正確にチェック
-            # 行の先頭付近に今日の日付数字があるかを判定
-            day_pattern = rf'(?:^|\s|>{today.day}(?:日|\(|\s|$)'
-            if re.search(day_pattern, text) or f"{today.day}日" in text or f"{today.day}(" in text:
+            # 【確定修正】今日の日付（例: "7日" または "7(" または "7 "）が含まれているか安全にチェック
+            day_str1 = f"{today.day}日"
+            day_str2 = f"{today.day}("
+            day_str3 = f" {today.day} "
+            
+            if day_str1 in text or day_str2 in text or day_str3 in text:
                 formatted_date = f"{today.month}月{today.day}日"
-                
-                # 不要な改行・空白を整えて綺麗なメッセージを作成
                 clean_text = " ".join(text.split())
                 
                 match_info = (
